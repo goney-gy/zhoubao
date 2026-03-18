@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>周报填写系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "微软雅黑", sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .switch-btn {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .switch-btn button {
+            padding: 8px 20px;
+            margin: 0 10px;
+            border: none;
+            border-radius: 4px;
+            background: #2c3e50;
+            color: white;
+            cursor: pointer;
+        }
+        .switch-btn button:hover {
+            background: #34495e;
+        }
+        .form-section, .admin-section {
+            display: none;
+        }
+        .form-section.active, .admin-section.active {
+            display: block;
+        }
+        .form-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+        .form-row label {
+            width: 80px;
+            font-weight: bold;
+        }
+        .form-row select, .form-row input, .form-row textarea {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .form-row textarea {
+            min-height: 60px;
+            resize: vertical;
+        }
+        .date-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+        .date-row label {
+            width: 80px;
+            font-weight: bold;
+        }
+        .date-row input {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: not-allowed;
+            background-color: #f9f9f9;
+        }
+        .project-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: flex-start;
+        }
+        .project-row .short-input {
+            width: 20%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .project-row .long-input {
+            flex: 1;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 60px;
+        }
+        .project-row .status-select {
+            width: 15%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .add-row-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #3498db;
+            color: white;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+        }
+        .add-row-btn:hover {
+            background: #2980b9;
+        }
+        .submit-area {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .submit-btn, .resubmit-btn, .export-btn {
+            padding: 10px 30px;
+            border: none;
+            border-radius: 4px;
+            background: #27ae60;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        .resubmit-btn {
+            background: #e67e22;
+        }
+        .export-btn {
+            background: #9b59b6;
+        }
+        .submit-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .admin-table th, .admin-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        .admin-table th {
+            background-color: #2c3e50;
+            color: white;
+        }
+        .admin-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .admin-table tr.invalid {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .filter-bar {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .filter-bar select, .filter-bar input {
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .filter-bar button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            background: #3498db;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+    <!-- 引入 Supabase 和 Excel 导出库（修复CDN链接） -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.4/dist/umd/supabase.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="container">
+    <div class="switch-btn">
+        <button id="userBtn">用户填写界面</button>
+        <button id="adminBtn">查看界面</button>
+    </div>
+
+    <div class="form-section active" id="formSection">
+        <div class="date-row">
+            <label>周报周期：</label>
+            <input type="text" id="fillDate" readonly>
+        </div>
+        <div class="form-row">
+            <label>姓名：</label>
+            <select id="username" required>
+                <option value="">请选择姓名</option>
+                <option value="李孟雅">李孟雅</option>
+                <option value="李英超">李英超</option>
+                <option value="戴阳">戴阳</option>
+                <option value="黄晓杰">黄晓杰</option>
+                <option value="牛中沛">牛中沛</option>
+                <option value="田帅">田帅</option>
+                <option value="王乾坤">王乾坤</option>
+                <option value="王宇蝶">王宇蝶</option>
+            </select>
+        </div>
+
+        <div id="projectRowsContainer">
+            <div class="project-row">
+                <input type="text" class="short-input" placeholder="项目类型">
+                <textarea class="long-input" placeholder="项目内容"></textarea>
+                <select class="status-select">
+                    <option value="30%">30%</option>
+                    <option value="50%">50%</option>
+                    <option value="70%">70%</option>
+                    <option value="已完成">已完成</option>
+                </select>
+            </div>
+            <div class="project-row">
+                <input type="text" class="short-input" placeholder="项目类型">
+                <textarea class="long-input" placeholder="项目内容"></textarea>
+                <select class="status-select">
+                    <option value="30%">30%</option>
+                    <option value="50%">50%</option>
+                    <option value="70%">70%</option>
+                    <option value="已完成">已完成</option>
+                </select>
+            </div>
+        </div>
+
+        <button class="add-row-btn" id="addRowBtn">+</button>
+        <div class="submit-area" id="submitArea">
+            <button class="submit-btn" id="submitBtn">提交</button>
+        </div>
+    </div>
+
+    <div class="admin-section" id="adminSection">
+        <h2>周报汇总（多人共享）</h2>
+        <div class="filter-bar">
+            <select id="filterUsername">
+                <option value="">全部人员</option>
+                <option value="李孟雅">李孟雅</option>
+                <option value="李英超">李英超</option>
+                <option value="戴阳">戴阳</option>
+                <option value="黄晓杰">黄晓杰</option>
+                <option value="牛中沛">牛中沛</option>
+                <option value="田帅">田帅</option>
+                <option value="王乾坤">王乾坤</option>
+                <option value="王宇蝶">王宇蝶</option>
+            </select>
+            <select id="filterDate">
+                <option value="">全部周期</option>
+            </select>
+            <button id="filterBtn">筛选</button>
+            <button id="showAllBtn">显示全部</button>
+        </div>
+
+        <button class="export-btn" id="exportBtn">导出Excel</button>
+        <table class="admin-table" id="adminTable">
+            <thead>
+                <tr>
+                    <th>周报周期</th>
+                    <th>提交时间</th>
+                    <th>姓名</th>
+                    <th>项目类型</th>
+                    <th>项目内容</th>
+                    <th>完成状态</th>
+                    <th>记录状态</th>
+                    <!-- 已删除操作列 -->
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // ========== Supabase 配置 ==========
+    const SUPABASE_URL = "https://avtrtxgzsakanawxvuiv.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2dHJ0eGd6c2FrYW5hd3h2dWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MjQ5MDcsImV4cCI6MjA4OTMwMDkwN30.SIvHaxe0ao2g-EbXqjYu9DkRaXzrUK6APeSXGNX3uZ8";
+    
+    // 初始化 Supabase
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    let isSubmitted = false;
+    let userReports = [];
+    let currentFilteredData = [];
+
+    // 日期格式化
+    const formatDate = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    // 获取上周周一~周五
+    const getLastWeekRange = () => {
+        const today = new Date();
+        const day = today.getDay() || 7;
+        const mondayThisWeek = new Date(today);
+        mondayThisWeek.setDate(today.getDate() - (day - 1));
+        const mondayLastWeek = new Date(mondayThisWeek);
+        mondayLastWeek.setDate(mondayThisWeek.getDate() - 7);
+        const fridayLastWeek = new Date(mondayLastWeek);
+        fridayLastWeek.setDate(mondayLastWeek.getDate() + 4);
+        return `${formatDate(mondayLastWeek)}至${formatDate(fridayLastWeek)}`;
+    };
+
+    // 从 Supabase 加载所有数据
+    async function loadReports() {
+        try {
+            const { data, error } = await supabase
+                .from('weekly_reports')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) {
+                console.error('加载数据错误：', error);
+                alert(`加载数据失败：${error.message}\n请检查 Supabase 配置和数据表是否创建`);
+                return [];
+            }
+            userReports = data || [];
+            return userReports;
+        } catch (e) {
+            console.error('加载数据异常：', e);
+            alert('加载数据异常，请检查网络或 Supabase 配置');
+            return [];
+        }
+    }
+
+    // 保存数据到 Supabase
+    async function saveReport(report) {
+        try {
+            // 先删除同姓名+同周期的有效记录
+            const { error: deleteError } = await supabase
+                .from('weekly_reports')
+                .delete()
+                .eq('username', report.username)
+                .eq('fill_date', report.fillDate)
+                .eq('is_invalid', false);
+            
+            if (deleteError) {
+                console.error('删除旧记录错误：', deleteError);
+                alert(`删除旧记录失败：${deleteError.message}`);
+                return false;
+            }
+            
+            // 插入新记录
+            const { error: insertError } = await supabase
+                .from('weekly_reports')
+                .insert([{
+                    fill_date: report.fillDate,
+                    username: report.username,
+                    projects: report.projects,
+                    submit_time: report.submitTime,
+                    is_invalid: report.isInvalid
+                }]);
+            
+            if (insertError) {
+                console.error('插入新记录错误：', insertError);
+                alert(`提交失败：${insertError.message}`);
+                return false;
+            }
+            return true;
+        } catch (e) {
+            console.error('保存数据异常：', e);
+            alert('提交异常，请检查网络或 Supabase 配置');
+            return false;
+        }
+    }
+
+    // 作废记录
+    async function invalidateReport(username, fillDate) {
+        try {
+            const { error } = await supabase
+                .from('weekly_reports')
+                .update({ is_invalid: true })
+                .eq('username', username)
+                .eq('fill_date', fillDate)
+                .eq('is_invalid', false);
+            
+            if (error) {
+                console.error('作废记录错误：', error);
+                alert(`作废失败：${error.message}`);
+                return false;
+            }
+            return true;
+        } catch (e) {
+            console.error('作废记录异常：', e);
+            alert('作废记录异常，请检查网络');
+            return false;
+        }
+    }
+
+    // 初始化页面
+    window.onload = async function () {
+        document.getElementById('fillDate').value = getLastWeekRange();
+        await loadReports();
+        initWeekSelectOptions();
+    };
+
+    // 初始化周期下拉框
+    function initWeekSelectOptions() {
+        const select = document.getElementById('filterDate');
+        while (select.options.length > 1) {
+            select.remove(1);
+        }
+        const weekSet = new Set();
+        weekSet.add(getLastWeekRange());
+        userReports.forEach(report => { weekSet.add(report.fill_date); });
+        const weekList = Array.from(weekSet).sort((a, b) => new Date(b.split('至')[0]) - new Date(a.split('至')[0]));
+        weekList.forEach(week => {
+            const opt = document.createElement('option');
+            opt.value = week;
+            opt.textContent = week;
+            select.appendChild(opt);
+        });
+    }
+
+    // 切换界面
+    const userBtn = document.getElementById('userBtn');
+    const adminBtn = document.getElementById('adminBtn');
+    const formSection = document.getElementById('formSection');
+    const adminSection = document.getElementById('adminSection');
+
+    userBtn.onclick = () => {
+        formSection.classList.add('active');
+        adminSection.classList.remove('active');
+    };
+
+    adminBtn.onclick = async () => {
+        formSection.classList.remove('active');
+        adminSection.classList.add('active');
+        await loadReports();
+        renderAdminTable();
+    };
+
+    // 添加项目行
+    const addRowBtn = document.getElementById('addRowBtn');
+    const projectRowsContainer = document.getElementById('projectRowsContainer');
+    addRowBtn.onclick = () => {
+        if (isSubmitted) return;
+        const row = document.createElement('div');
+        row.className = 'project-row';
+        row.innerHTML = `
+            <input type="text" class="short-input" placeholder="项目类型">
+            <textarea class="long-input" placeholder="项目内容"></textarea>
+            <select class="status-select">
+                <option value="30%">30%</option>
+                <option value="50%">50%</option>
+                <option value="70%">70%</option>
+                <option value="已完成">已完成</option>
+            </select>`;
+        projectRowsContainer.appendChild(row);
+    };
+
+    // 提交周报
+    const submitBtn = document.getElementById('submitBtn');
+    const username = document.getElementById('username');
+    const fillDate = document.getElementById('fillDate');
+
+    submitBtn.onclick = async () => {
+        if (!username.value) {
+            alert('请选择姓名！');
+            return;
+        }
+        
+        // 收集项目数据
+        const report = {
+            fillDate: fillDate.value,
+            username: username.value,
+            projects: [],
+            submitTime: new Date().toLocaleString(),
+            isInvalid: false
+        };
+        
+        document.querySelectorAll('.project-row').forEach(row => {
+            const t = row.querySelector('.short-input').value.trim();
+            const c = row.querySelector('.long-input').value.trim();
+            const s = row.querySelector('.status-select').value;
+            if (t || c) {
+                report.projects.push({ type: t, content: c, status: s });
+            }
+        });
+
+        // 保存到 Supabase
+        const success = await saveReport(report);
+        if (!success) return;
+
+        // 更新本地数据并刷新状态
+        await loadReports();
+        isSubmitted = true;
+        submitBtn.textContent = '已提交';
+        submitBtn.disabled = true;
+
+        // 添加重新填写按钮
+        const reBtn = document.createElement('button');
+        reBtn.className = 'resubmit-btn';
+        reBtn.textContent = '重新填写';
+        document.getElementById('submitArea').appendChild(reBtn);
+
+        reBtn.onclick = async () => {
+            // 作废原有记录
+            await invalidateReport(username.value, fillDate.value);
+            await loadReports();
+            
+            // 重置界面
+            isSubmitted = false;
+            submitBtn.textContent = '提交';
+            submitBtn.disabled = false;
+            reBtn.remove();
+
+            // 清空项目行
+            document.querySelectorAll('.project-row').forEach((r, i) => {
+                if (i < 2) {
+                    r.querySelector('.short-input').value = '';
+                    r.querySelector('.long-input').value = '';
+                    r.querySelector('.status-select').value = '30%';
+                } else {
+                    r.remove();
+                }
+            });
+        };
+        alert('提交成功！所有人都能看到这条记录');
+    };
+
+    // 渲染管理员表格（彻底删除操作列）
+    function renderAdminTable(filtered) {
+        const data = filtered || userReports;
+        currentFilteredData = data;
+        const tbody = document.querySelector('#adminTable tbody');
+        tbody.innerHTML = '';
+        
+        data.forEach(rep => {
+            rep.projects.forEach((proj) => {
+                const tr = document.createElement('tr');
+                if (rep.is_invalid) tr.classList.add('invalid');
+                tr.innerHTML = `
+                    <td>${rep.fill_date}</td>
+                    <td>${rep.submit_time}</td>
+                    <td>${rep.username}</td>
+                    <td>${proj.type || '-'}</td>
+                    <td>${proj.content || '-'}</td>
+                    <td>${proj.status}</td>
+                    <td>${rep.is_invalid ? '已作废' : '有效'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+    }
+
+    // 筛选功能
+    document.getElementById('filterBtn').onclick = async () => {
+        await loadReports();
+        const u = document.getElementById('filterUsername').value;
+        const w = document.getElementById('filterDate').value;
+        let f = [...userReports];
+        if (u) f = f.filter(x => x.username === u);
+        if (w) f = f.filter(x => x.fill_date === w);
+        renderAdminTable(f);
+    };
+
+    // 显示全部
+    document.getElementById('showAllBtn').onclick = async () => {
+        document.getElementById('filterUsername').value = '';
+        document.getElementById('filterDate').value = '';
+        await loadReports();
+        renderAdminTable();
+    };
+
+    // 导出Excel
+    document.getElementById('exportBtn').onclick = () => {
+        const validList = currentFilteredData.filter(x => !x.is_invalid);
+        const map = {};
+        validList.forEach(rep => {
+            rep.projects.forEach(p => {
+                if (!p.type) return;
+                const key = `${rep.fill_date}|${p.type}`;
+                if (!map[key]) {
+                    map[key] = {
+                        week: rep.fill_date,
+                        type: p.type,
+                        users: new Set(),
+                        items: []
+                    };
+                }
+                map[key].users.add(rep.username);
+                map[key].items.push(`${p.content}-${p.status}`);
+            });
+        });
+        const data = [
+            ['周报周期', '项目类型', '参与人员', '项目内容-完成状态', '记录状态']
+        ];
+        Object.values(map).forEach(item => {
+            data.push([
+                item.week,
+                item.type,
+                Array.from(item.users).join('、'),
+                item.items.join('\n'),
+                '有效'
+            ]);
+        });
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '周报');
+        XLSX.writeFile(wb, `周报_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`);
+    };
+</script>
+</body>
+</html>
