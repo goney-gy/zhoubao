@@ -314,6 +314,7 @@
     };
 
     // 获取上周周一~周五
+"""
     const getLastWeekRange = () => {
         const today = new Date();
         const day = today.getDay() || 7;
@@ -325,6 +326,21 @@
         fridayLastWeek.setDate(mondayLastWeek.getDate() + 4);
         return `${formatDate(mondayLastWeek)}至${formatDate(fridayLastWeek)}`;
     };
+"""
+    const getCurrentWeekRange = () => {
+  const today = new Date();
+  const day = today.getDay() || 7; // 周日返回0，转为7方便计算
+  
+  // 本周一
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (day - 1));
+  
+  // 本周日（周一 + 6天）
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  return `${formatDate(monday)}至${formatDate(sunday)}`;
+};
 
     // 从 Supabase 加载所有数据
     async function loadReports() {
