@@ -85,6 +85,12 @@
             cursor: not-allowed;
             background-color: #f9f9f9;
         }
+        .tip-text {
+            margin: 0 0 25px 90px;
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+        }
         .project-row {
             display: flex;
             gap: 10px;
@@ -193,7 +199,6 @@
             cursor: pointer;
         }
     </style>
-    <!-- 引入 Supabase 和 Excel 导出库（修复CDN链接） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.4/dist/umd/supabase.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -224,10 +229,14 @@
             </select>
         </div>
 
+        <div class="tip-text">
+            常填项目类型：语料运营平台、自动化检索、公共服务平台、camp平台、工具链、国泰海通、科学数据管理中心
+        </div>
+
         <div id="projectRowsContainer">
             <div class="project-row">
                 <input type="text" class="short-input" placeholder="项目类型">
-                <textarea class="long-input" placeholder="项目内容"></textarea>
+                <textarea class="long-input" placeholder="项目内容；每次仅填写一条，不要序号。"></textarea>
                 <select class="status-select">
                     <option value="30%">30%</option>
                     <option value="50%">50%</option>
@@ -237,7 +246,7 @@
             </div>
             <div class="project-row">
                 <input type="text" class="short-input" placeholder="项目类型">
-                <textarea class="long-input" placeholder="项目内容"></textarea>
+                <textarea class="long-input" placeholder="项目内容；每次仅填写一条，不要序号。"></textarea>
                 <select class="status-select">
                     <option value="30%">30%</option>
                     <option value="50%">50%</option>
@@ -285,7 +294,6 @@
                     <th>项目内容</th>
                     <th>完成状态</th>
                     <th>记录状态</th>
-                    <!-- 已删除操作列 -->
                 </tr>
             </thead>
             <tbody></tbody>
@@ -294,18 +302,15 @@
 </div>
 
 <script>
-    // ========== Supabase 配置 ==========
     const SUPABASE_URL = "https://avtrtxgzsakanawxvuiv.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2dHJ0eGd6c2FrYW5hd3h2dWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MjQ5MDcsImV4cCI6MjA4OTMwMDkwN30.SIvHaxe0ao2g-EbXqjYu9DkRaXzrUK6APeSXGNX3uZ8";
     
-    // 初始化 Supabase
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     
     let isSubmitted = false;
     let userReports = [];
     let currentFilteredData = [];
 
-    // 日期格式化
     const formatDate = (date) => {
         const y = date.getFullYear();
         const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -313,19 +318,16 @@
         return `${y}-${m}-${d}`;
     };
 
- // 获取当周周一~周五
-const getLastWeekRange = () => {
-    const today = new Date();
-    const day = today.getDay() || 7;
-    // 计算本周周一
-    const mondayThisWeek = new Date(today);
-    mondayThisWeek.setDate(today.getDate() - (day - 1));
-    // 计算本周周五
-    const fridayThisWeek = new Date(mondayThisWeek);
-    fridayThisWeek.setDate(mondayThisWeek.getDate() + 4);
-    return `${formatDate(mondayThisWeek)}至${formatDate(fridayThisWeek)}`;
-};
-    // 从 Supabase 加载所有数据
+    const getLastWeekRange = () => {
+        const today = new Date();
+        const day = today.getDay() || 7;
+        const mondayThisWeek = new Date(today);
+        mondayThisWeek.setDate(today.getDate() - (day - 1));
+        const fridayThisWeek = new Date(mondayThisWeek);
+        fridayThisWeek.setDate(mondayThisWeek.getDate() + 4);
+        return `${formatDate(mondayThisWeek)}至${formatDate(fridayThisWeek)}`;
+    };
+
     async function loadReports() {
         try {
             const { data, error } = await supabase
@@ -347,10 +349,8 @@ const getLastWeekRange = () => {
         }
     }
 
-    // 保存数据到 Supabase
     async function saveReport(report) {
         try {
-            // 先删除同姓名+同周期的有效记录
             const { error: deleteError } = await supabase
                 .from('weekly_reports')
                 .delete()
@@ -364,7 +364,6 @@ const getLastWeekRange = () => {
                 return false;
             }
             
-            // 插入新记录
             const { error: insertError } = await supabase
                 .from('weekly_reports')
                 .insert([{
@@ -388,7 +387,6 @@ const getLastWeekRange = () => {
         }
     }
 
-    // 作废记录
     async function invalidateReport(username, fillDate) {
         try {
             const { error } = await supabase
@@ -411,14 +409,12 @@ const getLastWeekRange = () => {
         }
     }
 
-    // 初始化页面
     window.onload = async function () {
         document.getElementById('fillDate').value = getLastWeekRange();
         await loadReports();
         initWeekSelectOptions();
     };
 
-    // 初始化周期下拉框
     function initWeekSelectOptions() {
         const select = document.getElementById('filterDate');
         while (select.options.length > 1) {
@@ -436,7 +432,6 @@ const getLastWeekRange = () => {
         });
     }
 
-    // 切换界面
     const userBtn = document.getElementById('userBtn');
     const adminBtn = document.getElementById('adminBtn');
     const formSection = document.getElementById('formSection');
@@ -454,7 +449,6 @@ const getLastWeekRange = () => {
         renderAdminTable();
     };
 
-    // 添加项目行
     const addRowBtn = document.getElementById('addRowBtn');
     const projectRowsContainer = document.getElementById('projectRowsContainer');
     addRowBtn.onclick = () => {
@@ -463,7 +457,7 @@ const getLastWeekRange = () => {
         row.className = 'project-row';
         row.innerHTML = `
             <input type="text" class="short-input" placeholder="项目类型">
-            <textarea class="long-input" placeholder="项目内容"></textarea>
+            <textarea class="long-input" placeholder="项目内容；每次仅填写一条，不要序号。"></textarea>
             <select class="status-select">
                 <option value="30%">30%</option>
                 <option value="50%">50%</option>
@@ -473,7 +467,6 @@ const getLastWeekRange = () => {
         projectRowsContainer.appendChild(row);
     };
 
-    // 提交周报
     const submitBtn = document.getElementById('submitBtn');
     const username = document.getElementById('username');
     const fillDate = document.getElementById('fillDate');
@@ -484,7 +477,6 @@ const getLastWeekRange = () => {
             return;
         }
         
-        // 收集项目数据
         const report = {
             fillDate: fillDate.value,
             username: username.value,
@@ -502,34 +494,28 @@ const getLastWeekRange = () => {
             }
         });
 
-        // 保存到 Supabase
         const success = await saveReport(report);
         if (!success) return;
 
-        // 更新本地数据并刷新状态
         await loadReports();
         isSubmitted = true;
         submitBtn.textContent = '已提交';
         submitBtn.disabled = true;
 
-        // 添加重新填写按钮
         const reBtn = document.createElement('button');
         reBtn.className = 'resubmit-btn';
         reBtn.textContent = '重新填写';
         document.getElementById('submitArea').appendChild(reBtn);
 
         reBtn.onclick = async () => {
-            // 作废原有记录
             await invalidateReport(username.value, fillDate.value);
             await loadReports();
             
-            // 重置界面
             isSubmitted = false;
             submitBtn.textContent = '提交';
             submitBtn.disabled = false;
             reBtn.remove();
 
-            // 清空项目行
             document.querySelectorAll('.project-row').forEach((r, i) => {
                 if (i < 2) {
                     r.querySelector('.short-input').value = '';
@@ -543,7 +529,6 @@ const getLastWeekRange = () => {
         alert('提交成功！所有人都能看到这条记录');
     };
 
-    // 渲染管理员表格（彻底删除操作列）
     function renderAdminTable(filtered) {
         const data = filtered || userReports;
         currentFilteredData = data;
@@ -568,7 +553,6 @@ const getLastWeekRange = () => {
         });
     }
 
-    // 筛选功能
     document.getElementById('filterBtn').onclick = async () => {
         await loadReports();
         const u = document.getElementById('filterUsername').value;
@@ -579,7 +563,6 @@ const getLastWeekRange = () => {
         renderAdminTable(f);
     };
 
-    // 显示全部
     document.getElementById('showAllBtn').onclick = async () => {
         document.getElementById('filterUsername').value = '';
         document.getElementById('filterDate').value = '';
@@ -587,7 +570,6 @@ const getLastWeekRange = () => {
         renderAdminTable();
     };
 
-    // 导出Excel
     document.getElementById('exportBtn').onclick = () => {
         const validList = currentFilteredData.filter(x => !x.is_invalid);
         const map = {};
