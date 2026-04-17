@@ -310,6 +310,7 @@
     let isSubmitted = false;
     let userReports = [];
     let currentFilteredData = [];
+    let lastSubmittedId = null; // 记录最后一次提交的ID，用于作废本条
 
     const formatDate = (date) => {
         const y = date.getFullYear();
@@ -349,22 +350,10 @@
         }
     }
 
+    // 提交：新增记录，返回本条记录ID
     async function saveReport(report) {
         try {
-            const { error: deleteError } = await supabase
-                .from('weekly_reports')
-                .delete()
-                .eq('username', report.username)
-                .eq('fill_date', report.fillDate)
-                .eq('is_invalid', false);
-            
-            if (deleteError) {
-                console.error('删除旧记录错误：', deleteError);
-                alert(`删除旧记录失败：${deleteError.message}`);
-                return false;
-            }
-            
-            const { error: insertError } = await supabase
+            const { data: insertData, error: insertError } = await supabase
                 .from('weekly_reports')
                 .insert([{
                     fill_date: report.fillDate,
@@ -372,12 +361,16 @@
                     projects: report.projects,
                     submit_time: report.submitTime,
                     is_invalid: report.isInvalid
-                }]);
+                }])
+                .select();
             
             if (insertError) {
                 console.error('插入新记录错误：', insertError);
                 alert(`提交失败：${insertError.message}`);
                 return false;
+            }
+            if (insertData && insertData.length > 0) {
+                lastSubmittedId = insertData[0].id; // 保存本次提交ID
             }
             return true;
         } catch (e) {
@@ -387,24 +380,27 @@
         }
     }
 
-    async function invalidateReport(username, fillDate) {
+    // 作废：只作废最后一次提交的那条记录
+    async function invalidateLastSubmit() {
+        if (!lastSubmittedId) {
+            alert('无可作废的提交记录');
+            return false;
+        }
         try {
             const { error } = await supabase
                 .from('weekly_reports')
                 .update({ is_invalid: true })
-                .eq('username', username)
-                .eq('fill_date', fillDate)
-                .eq('is_invalid', false);
+                .eq('id', lastSubmittedId);
             
             if (error) {
-                console.error('作废记录错误：', error);
-                alert(`作废失败：${error.message}`);
+                console.error('作废失败：', error);
+                alert('作废本条记录失败');
                 return false;
             }
+            lastSubmittedId = null;
             return true;
         } catch (e) {
-            console.error('作废记录异常：', e);
-            alert('作废记录异常，请检查网络');
+            console.error('作废异常：', e);
             return false;
         }
     }
@@ -502,20 +498,23 @@
         submitBtn.textContent = '已提交';
         submitBtn.disabled = true;
 
+        // 新增：重新填写按钮（只作废本条）
         const reBtn = document.createElement('button');
         reBtn.className = 'resubmit-btn';
-        reBtn.textContent = '重新填写';
+        reBtn.textContent = '重新填写（作废本条）';
         document.getElementById('submitArea').appendChild(reBtn);
 
         reBtn.onclick = async () => {
-            await invalidateReport(username.value, fillDate.value);
+            const ok = await invalidateLastSubmit();
+            if (!ok) return;
+
             await loadReports();
-            
             isSubmitted = false;
             submitBtn.textContent = '提交';
             submitBtn.disabled = false;
             reBtn.remove();
 
+            // 清空表单
             document.querySelectorAll('.project-row').forEach((r, i) => {
                 if (i < 2) {
                     r.querySelector('.short-input').value = '';
@@ -525,8 +524,9 @@
                     r.remove();
                 }
             });
+            alert('已作废本次提交记录，可重新填写');
         };
-        alert('提交成功！所有人都能看到这条记录');
+        alert('提交成功！');
     };
 
     function renderAdminTable(filtered) {
